@@ -1,360 +1,110 @@
--- Chmao脚本中心UI（极简净版，含右上角优雅X关闭按钮）
-local UIS = game:GetService("UserInputService")
-local Players = game:GetService("Players")
-local LP = Players.LocalPlayer
+import time
+import threading
+import keyboard
+import sys
 
--- 创建主UI
-local Main = Instance.new("ScreenGui")
-Main.Name = "ChmaoScriptUI"
-Main.ResetOnSpawn = false
-Main.Parent = game.CoreGui
+# ============================================
+# 配置区域
+# ============================================
 
--- 主框架
-local Frame = Instance.new("Frame")
-Frame.Size = UDim2.new(0, 500, 0, 300)
-Frame.Position = UDim2.new(0.5, -250, 0.5, -150)
-Frame.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
-Frame.BackgroundTransparency = 0.15
-Frame.BorderSizePixel = 0
-Frame.Active = true
-Frame.Visible = false
-Frame.Parent = Main
+# 坐标点列表
+COORDINATES = [
+    (286.41, 272.00, -34.86),
+    (285.20, 272.00, -8.64),
+    (283.41, 272.00, 19.00),
+    (318.63, 272.00, 16.27),
+    (319.22, 272.00, -5.45),
+    (319.71, 272.00, -30.05),
+    (371.45, 272.00, -30.92),
+    (370.53, 272.00, -2.17),
+    (369.70, 272.00, 20.27)
+]
 
-local UICorner = Instance.new("UICorner")
-UICorner.CornerRadius = UDim.new(0, 8)
-UICorner.Parent = Frame
+TELEPORT_DELAY = 0.01  # 0.01秒间隔
+HOTKEY = 'F8'          # 启动/停止热键
 
--- 顶部栏
-local TopBar = Instance.new("Frame")
-TopBar.Size = UDim2.new(1, 0, 0, 32)
-TopBar.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
-TopBar.BorderSizePixel = 0
-TopBar.Parent = Frame
+# ============================================
+# 核心功能
+# ============================================
 
-local TopBarCorner = Instance.new("UICorner")
-TopBarCorner.CornerRadius = UDim.new(0, 8)
-TopBarCorner.Parent = TopBar
+is_running = False
+current_index = 0
+lock = threading.Lock()
 
--- 标题文字
-local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(0, 200, 1, 0)
-Title.Position = UDim2.new(0.5, -100, 0, 0)
-Title.Text = "CHUOMAO SCRIPT"
-Title.Font = Enum.Font.GothamBold
-Title.TextSize = 18
-Title.TextColor3 = Color3.fromRGB(200, 200, 255)
-Title.BackgroundTransparency = 1
-Title.Parent = TopBar
+def perform_teleport(x, y, z):
+    """
+    执行传送操作 - 需要根据你的游戏修改此函数
+    示例：模拟输入传送命令
+    """
+    # TODO: 在这里实现实际的传送逻辑
+    # 例如：
+    # keyboard.press('t')  # 按下传送键
+    # time.sleep(0.05)
+    # keyboard.write(f'/tp {x} {y} {z}')
+    # time.sleep(0.05)
+    # keyboard.press('enter')
+    
+    # 临时：仅打印坐标（实际使用时需替换为真实传送代码）
+    print(f"[传送] X: {x}, Y: {y}, Z: {z}")
 
--- 彩色渐变效果
-coroutine.wrap(function()
-    while task.wait(0.05) do
-        local t = tick() * 1.5
-        Title.TextColor3 = Color3.new(
-            0.7 + 0.3 * math.sin(t),
-            0.7 + 0.3 * math.sin(t + 2),
-            0.7 + 0.3 * math.sin(t + 4)
-        )
-    end
-end)()
+def teleport_loop():
+    """主传送循环"""
+    global is_running, current_index
+    
+    print("\n" + "="*50)
+    print("🚀 高速传送循环已启动")
+    print("="*50)
+    
+    while is_running:
+        # 获取当前坐标并更新索引
+        with lock:
+            coord = COORDINATES[current_index]
+            current_index = (current_index + 1) % len(COORDINATES)
+        
+        # 执行传送
+        perform_teleport(*coord)
+        
+        # 精确等待
+        time.sleep(TELEPORT_DELAY)
+    
+    print("\n🛑 传送循环已停止")
 
--- 右上角优雅X关闭按钮
-local CloseBtn = Instance.new("TextButton")
-CloseBtn.Name = "CloseButton"
-CloseBtn.Size = UDim2.new(0, 32, 0, 32)
-CloseBtn.Position = UDim2.new(1, -36, 0, 0)
-CloseBtn.BackgroundColor3 = Color3.fromRGB(90, 110, 180)
-CloseBtn.Text = "X"
-CloseBtn.Font = Enum.Font.GothamBold
-CloseBtn.TextSize = 18
-CloseBtn.TextColor3 = Color3.new(1, 1, 1)
-CloseBtn.Parent = TopBar
-local closeCorner = Instance.new("UICorner", CloseBtn)
-closeCorner.CornerRadius = UDim.new(0, 8)
+def toggle_teleport():
+    """切换传送状态"""
+    global is_running
+    
+    if is_running:
+        is_running = False
+    else:
+        is_running = True
+        thread = threading.Thread(target=teleport_loop)
+        thread.daemon = True
+        thread.start()
 
-CloseBtn.MouseEnter:Connect(function()
-    CloseBtn.BackgroundColor3 = Color3.fromRGB(60, 80, 150)
-end)
-CloseBtn.MouseLeave:Connect(function()
-    CloseBtn.BackgroundColor3 = Color3.fromRGB(90, 110, 180)
-end)
-CloseBtn.MouseButton1Click:Connect(function()
-    Main:Destroy()
-end)
+# ============================================
+# 主程序
+# ============================================
 
--- 左侧导航栏
-local Sidebar = Instance.new("Frame")
-Sidebar.Size = UDim2.new(0, 100, 1, -32)
-Sidebar.Position = UDim2.new(0, 0, 0, 32)
-Sidebar.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
-Sidebar.BackgroundTransparency = 0.2
-Sidebar.BorderSizePixel = 0
-Sidebar.Parent = Frame
+def main():
+    print("="*60)
+    print("🚀 高速坐标循环传送系统 (PC版)")
+    print("="*60)
+    print(f"📍 坐标点数量: {len(COORDINATES)}")
+    print(f"⏱️  传送间隔: {TELEPORT_DELAY}秒")
+    print(f"⌨️  开关热键: {HOTKEY}")
+    print("="*60)
+    print("⚠️  重要：需要修改 perform_teleport() 函数以实现实际传送")
+    print("="*60)
+    print("等待热键按下...")
+    
+    # 注册热键
+    keyboard.add_hotkey(HOTKEY, toggle_teleport)
+    
+    # 等待退出
+    try:
+        keyboard.wait('F12')  # 按F12退出程序
+    except KeyboardInterrupt:
+        print("\n程序已退出")
 
--- 创建页签按钮
-local TabBtns = {}
-local function createTab(name, order)
-    local btn = Instance.new("TextButton")
-    btn.Name = "Tab_"..name
-    btn.Size = UDim2.new(0.9, 0, 0, 30)
-    btn.Position = UDim2.new(0.05, 0, 0, (order-1)*36 + 8)
-    btn.BackgroundColor3 = Color3.fromRGB(65, 65, 85)
-    btn.TextColor3 = Color3.fromRGB(220, 220, 255)
-    btn.Font = Enum.Font.GothamMedium
-    btn.Text = name
-    btn.TextSize = 12
-    btn.AutoButtonColor = false
-    btn.Parent = Sidebar
-    local btnCorner = Instance.new("UICorner")
-    btnCorner.CornerRadius = UDim.new(0, 6)
-    btnCorner.Parent = btn
-    btn.MouseEnter:Connect(function()
-        btn.BackgroundColor3 = Color3.fromRGB(85, 85, 105)
-    end)
-    btn.MouseLeave:Connect(function()
-        btn.BackgroundColor3 = Color3.fromRGB(65, 65, 85)
-    end)
-    TabBtns[name..order] = btn
-    return btn
-end
-
--- 创建页签
-local infoTab = createTab("主页", 1)
-local func1Tab = createTab("森林存活99夜", 2)
-local func2Tab = createTab("偷走脑红", 3)
-local func3Tab = createTab("功能3", 4)
-
--- 主内容区域
-local ContentFrame = Instance.new("Frame")
-ContentFrame.Size = UDim2.new(1, -100, 1, -32)
-ContentFrame.Position = UDim2.new(0, 100, 0, 32)
-ContentFrame.BackgroundTransparency = 1
-ContentFrame.Parent = Frame
-
--- 信息页
-local InfoPage = Instance.new("Frame")
-InfoPage.Size = UDim2.new(1, 0, 1, 0)
-InfoPage.BackgroundTransparency = 1
-InfoPage.Visible = true
-InfoPage.Parent = ContentFrame
-
--- 欢迎信息
-local Welcome = Instance.new("TextLabel")
-Welcome.Size = UDim2.new(1, -20, 0, 40)
-Welcome.Position = UDim2.new(0, 10, 0, 10)
-Welcome.Text = "欢迎使用wow加载器😃"
-Welcome.TextColor3 = Color3.fromRGB(200, 200, 255)
-Welcome.TextSize = 24
-Welcome.Font = Enum.Font.GothamBold
-Welcome.BackgroundTransparency = 1
-Welcome.Parent = InfoPage
-
--- 实时时间
-local TimeLabel = Instance.new("TextLabel")
-TimeLabel.Size = UDim2.new(1, -20, 0, 30)
-TimeLabel.Position = UDim2.new(0, 10, 0, 50)
-TimeLabel.Text = os.date("%Y-%m-%d %H:%M:%S")
-TimeLabel.TextColor3 = Color3.fromRGB(180, 180, 220)
-TimeLabel.TextSize = 16
-TimeLabel.Font = Enum.Font.Gotham
-TimeLabel.BackgroundTransparency = 1
-TimeLabel.Parent = InfoPage
-
-coroutine.wrap(function()
-    while task.wait(1) do
-        TimeLabel.Text = os.date("%Y-%m-%d %H:%M:%S")
-    end
-end)()
-
--- 联系信息
-local ContactLabel = Instance.new("TextLabel")
-ContactLabel.Size = UDim2.new(1, -20, 0, 80)
-ContactLabel.Position = UDim2.new(0, 10, 0, 90)
-ContactLabel.Text = "QQ群: 962873051\n Ui有点差别介意但会经常更新\n上次更新时间: 2025年8月16日"
-ContactLabel.TextColor3 = Color3.fromRGB(170, 170, 200)
-ContactLabel.TextSize = 14
-ContactLabel.Font = Enum.Font.Gotham
-ContactLabel.TextYAlignment = Enum.TextYAlignment.Top
-ContactLabel.BackgroundTransparency = 1
-ContactLabel.Parent = InfoPage
-
--- 功能页（空内容）
-local function createEmptyFeaturePage()
-    local FeaturePage = Instance.new("ScrollingFrame")
-    FeaturePage.Size = UDim2.new(1, 0, 1, 0)
-    FeaturePage.BackgroundTransparency = 1
-    FeaturePage.ScrollBarThickness = 6
-    FeaturePage.Visible = false
-    FeaturePage.Parent = ContentFrame
-    return FeaturePage
-end
-local FeaturePage1 = createEmptyFeaturePage()
-local FeaturePage2 = createEmptyFeaturePage()
-local FeaturePage3 = createEmptyFeaturePage()
-
--- ========== 功能1页添加脚本按钮 ==========
-local script1Url = "https://raw.githubusercontent.com/VapeVoidware/VW-Add/main/nightsintheforest.lua"
-local btn1 = Instance.new("TextButton", FeaturePage1)
-btn1.Size = UDim2.new(0, 160, 0, 36)
-btn1.Position = UDim2.new(0, 24, 0, 24)
-btn1.BackgroundColor3 = Color3.fromRGB(80, 100, 180)
-btn1.Text = "老外脚本不用解卡"
-btn1.Font = Enum.Font.GothamBold
-btn1.TextSize = 14
-btn1.TextColor3 = Color3.new(1, 1, 1)
-local corner = Instance.new("UICorner", btn1)
-corner.CornerRadius = UDim.new(0, 8)
-btn1.MouseButton1Click:Connect(function()
-    loadstring(game:HttpGet(script1Url))()
-end)
-
-local script2Url = "https://raw.githubusercontent.com/kedd063/KdmlScripts/refs/heads/main/SkyBaseMakerV1.lua"
-local btn2 = Instance.new("TextButton", FeaturePage1)
-btn2.Size = UDim2.new(0, 160, 0, 36)
-btn2.Position = UDim2.new(0, 24, 0, 72)
-btn2.BackgroundColor3 = Color3.fromRGB(100, 120, 200)
-btn2.Text = "空中家具要解卡"
-btn2.Font = Enum.Font.GothamBold
-btn2.TextSize = 14
-btn2.TextColor3 = Color3.new(1, 1, 1)
-local corner2 = Instance.new("UICorner", btn2)
-corner2.CornerRadius = UDim.new(0, 8)
-btn2.MouseButton1Click:Connect(function()
-    loadstring(game:HttpGet(script2Url))()
-end)
-
-local script3Url = "https://raw.githubusercontent.com/H4xScripts/Loader/refs/heads/main/loader.lua"
-local btn3 = Instance.new("TextButton", FeaturePage1)
-btn3.Size = UDim2.new(0, 160, 0, 36)
-btn3.Position = UDim2.new(0, 24, 0, 120)
-btn3.BackgroundColor3 = Color3.fromRGB(120, 140, 220)
-btn3.Text = "要解卡密"
-btn3.Font = Enum.Font.GothamBold
-btn3.TextSize = 14
-btn3.TextColor3 = Color3.new(1, 1, 1)
-local corner3 = Instance.new("UICorner", btn3)
-corner3.CornerRadius = UDim.new(0, 8)
-btn3.MouseButton1Click:Connect(function()
-    loadstring(game:HttpGet(script3Url))()
-end)
-
--- ========== 你可以继续复制上面几行再加更多按钮，改名/改链接/改Y坐标即可 ==========
-
-local pages = {
-    [infoTab] = InfoPage,
-    [func1Tab] = FeaturePage1,
-    [func2Tab] = FeaturePage2,
-    [func3Tab] = FeaturePage3
-}
-for _, btn in pairs(TabBtns) do
-    btn.MouseButton1Click:Connect(function()
-        InfoPage.Visible = false
-        FeaturePage1.Visible = false
-        FeaturePage2.Visible = false
-        FeaturePage3.Visible = false
-        if pages[btn] then
-            pages[btn].Visible = true
-        end
-    end)
-end
-
--- ===== 可拖动的迷你开关按钮 =====
-local ToggleBtn = Instance.new("TextButton")
-ToggleBtn.Name = "ToggleButton"
-ToggleBtn.Size = UDim2.new(0, 80, 0, 30)
-ToggleBtn.Position = UDim2.new(0, 20, 0, 20)
-ToggleBtn.Text = "打开脚本"
-ToggleBtn.Font = Enum.Font.GothamBold
-ToggleBtn.TextSize = 12
-ToggleBtn.BackgroundColor3 = Color3.fromRGB(80, 100, 180)
-ToggleBtn.TextColor3 = Color3.new(1, 1, 1)
-ToggleBtn.Parent = Main
-
-local ToggleCorner = Instance.new("UICorner")
-ToggleCorner.CornerRadius = UDim.new(0, 8)
-ToggleCorner.Parent = ToggleBtn
-
--- 拖动逻辑
-local btnDragging, btnDragStart, btnStartPos
-local function handleDrag(input)
-    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
-        btnDragging = true
-        btnDragStart = input.Position
-        btnStartPos = ToggleBtn.Position
-        local conn
-        conn = input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                btnDragging = false
-                if conn then conn:Disconnect() end
-            end
-        end)
-    end
-end
-ToggleBtn.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        local startTime = tick()
-        local startPos = input.Position
-        local dragCheck
-        dragCheck = game:GetService("RunService").Heartbeat:Connect(function()
-            if tick() - startTime > 0.1 then
-                dragCheck:Disconnect()
-                if (input.Position - startPos).Magnitude > 5 then
-                    handleDrag(input)
-                end
-            end
-        end)
-    end
-end)
-UIS.InputChanged:Connect(function(input)
-    if btnDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-        local delta = input.Position - btnDragStart
-        ToggleBtn.Position = btnStartPos + UDim2.new(0, delta.X, 0, delta.Y)
-    end
-end)
-
--- 主窗口拖动逻辑
-local frameDragging, frameDragStart, frameStartPos
-TopBar.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        local startTime = tick()
-        local startPos = input.Position
-        local dragCheck
-        dragCheck = game:GetService("RunService").Heartbeat:Connect(function()
-            if tick() - startTime > 0.1 then
-                dragCheck:Disconnect()
-                if (input.Position - startPos).Magnitude > 5 then
-                    frameDragging = true
-                    frameDragStart = input.Position
-                    frameStartPos = Frame.Position
-                    local conn
-                    conn = input.Changed:Connect(function()
-                        if input.UserInputState == Enum.UserInputState.End then
-                            frameDragging = false
-                            if conn then conn:Disconnect() end
-                        end
-                    end)
-                end
-            end
-        end)
-    end
-end)
-UIS.InputChanged:Connect(function(input)
-    if frameDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-        local delta = input.Position - frameDragStart
-        Frame.Position = frameStartPos + UDim2.new(0, delta.X, 0, delta.Y)
-    end
-end)
-
--- 切换显示/隐藏
-ToggleBtn.MouseButton1Click:Connect(function()
-    Frame.Visible = not Frame.Visible
-    ToggleBtn.Text = Frame.Visible and "关闭脚本" or "打开脚本"
-end)
-
--- 初始显示信息页
-InfoPage.Visible = true
-FeaturePage1.Visible = false
-FeaturePage2.Visible = false
-FeaturePage3.Visible = false
-
-print("Chmao脚本中心UI(净版)已加载！")
+if __name__ == "__main__":
+    main()
