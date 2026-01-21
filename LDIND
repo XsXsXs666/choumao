@@ -1,0 +1,269 @@
+local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
+
+local Window = WindUI:CreateWindow({
+    Title = "挂机传送系统",
+    Size = UDim2.fromOffset(400, 350),
+    Theme = "Dark",
+    Transparent = true,
+})
+
+local Tabs = {
+    Teleport = Window:Tab({ Title = "传送控制", Icon = "navigation" }),
+    Settings = Window:Tab({ Title = "设置", Icon = "settings" })
+}
+
+-- 传送配置
+local TARGET_POSITION = Vector3.new(887.99, -1470.40, 754.94)
+local teleportEnabled = false
+local teleportSpeed = 0  -- 改为0实现锁定传送
+local teleportConnection = nil
+local autoRestart = true
+
+-- 状态变量
+local status = "就绪"
+local errorCount = 0
+
+-- 锁定传送函数（无延迟）
+local function LockTeleport()
+    local character = game.Players.LocalPlayer.Character
+    if character and character:FindFirstChild("HumanoidRootPart") then
+        local hrp = character.HumanoidRootPart
+        local targetCFrame = CFrame.new(
+            TARGET_POSITION.X,
+            TARGET_POSITION.Y + 2,
+            TARGET_POSITION.Z
+        )
+        hrp.CFrame = targetCFrame
+        return true
+    end
+    return false
+end
+
+-- 开始锁定传送
+local function StartLockTeleport()
+    if teleportEnabled then return end
+    
+    teleportEnabled = true
+    status = "锁定传送中..."
+    
+    -- 使用RenderStepped替代Heartbeat实现零延迟传送
+    teleportConnection = game:GetService("RunService").RenderStepped:Connect(function()
+        if not teleportEnabled then return end
+        
+        local success, err = pcall(LockTeleport)
+        if not success then
+            errorCount = errorCount + 1
+            if errorCount > 10 then
+                StopTeleporting()
+                if autoRestart then
+                    task.wait(1)
+                    StartLockTeleport()
+                end
+                return
+            end
+        else
+            errorCount = math.max(0, errorCount - 0.5)
+        end
+    end)
+    
+    -- 更新UI显示
+    if Tabs.Teleport._content and Tabs.Teleport._content.StatusText then
+        Tabs.Teleport._content.StatusText:SetText("状态: " .. status)
+    end
+end
+
+-- 停止传送
+local function StopTeleporting()
+    teleportEnabled = false
+    if teleportConnection then
+        teleportConnection:Disconnect()
+        teleportConnection = nil
+    end
+    status = "已停止"
+    
+    if Tabs.Teleport._content and Tabs.Teleport._content.StatusText then
+        Tabs.Teleport._content.StatusText:SetText("状态: " .. status)
+    end
+end
+
+-- 角色重生后自动恢复
+game.Players.LocalPlayer.CharacterAdded:Connect(function()
+    if teleportEnabled then
+        task.wait(1)
+        if teleportEnabled then
+            StartLockTeleport()
+        end
+    end
+end)
+
+-- 传送控制Tab
+Tabs.Teleport:Button({
+    Title = "🔒 开始锁定传送", 
+    Callback = function()
+        StartLockTeleport()
+        WindUI:Notify({
+            Title = "锁定传送开始",
+            Content = "已开始零延迟锁定传送",
+            Duration = 2
+        })
+    end
+})
+
+Tabs.Teleport:Button({
+    Title = "⏹ 停止传送", 
+    Callback = function()
+        StopTeleporting()
+        WindUI:Notify({
+            Title = "传送停止",
+            Content = "已停止传送",
+            Duration = 2
+        })
+    end
+})
+
+Tabs.Teleport:Toggle({
+    Title = "自动恢复", 
+    Default = true,
+    Callback = function(state)
+        autoRestart = state
+        WindUI:Notify({
+            Title = "设置更新",
+            Content = "自动恢复: " .. (state and "开启" or "关闭"),
+            Duration = 2
+        })
+    end
+})
+
+-- 状态显示（自定义元素）
+local statusFrame = Instance.new("Frame")
+statusFrame.BackgroundTransparency = 1
+statusFrame.Size = UDim2.new(1, 0, 0, 30)
+
+local statusLabel = Instance.new("TextLabel")
+statusLabel.Text = "状态: " .. status
+statusLabel.Size = UDim2.new(1, 0, 1, 0)
+statusLabel.BackgroundTransparency = 1
+statusLabel.TextColor3 = Color3.fromRGB(200, 200, 255)
+statusLabel.Font = Enum.Font.SourceSans
+statusLabel.TextSize = 14
+statusLabel.TextXAlignment = Enum.TextXAlignment.Left
+statusLabel.Parent = statusFrame
+
+-- 保存引用以便更新
+Tabs.Teleport._content = Tabs.Teleport._content or {}
+Tabs.Teleport._content.StatusText = statusLabel
+
+-- 将状态显示添加到UI中
+local teleportContent = Tabs.Teleport:GetContent()
+if teleportContent then
+    statusFrame.Parent = teleportContent
+end
+
+Tabs.Teleport:Label({
+    Title = "目标坐标",
+    Content = tostring(TARGET_POSITION)
+})
+
+Tabs.Teleport:Label({
+    Title = "传送模式",
+    Content = "零延迟锁定模式"
+})
+
+-- 设置Tab
+Tabs.Settings:Label({
+    Title = "注意",
+    Content = "当前为锁定传送模式，传送间隔为0"
+})
+
+Tabs.Settings:Input({
+    Title = "X坐标", 
+    Default = "887.99",
+    Callback = function(text)
+        local num = tonumber(text)
+        if num then
+            TARGET_POSITION = Vector3.new(num, TARGET_POSITION.Y, TARGET_POSITION.Z)
+            WindUI:Notify({
+                Title = "坐标更新",
+                Content = "X坐标已更新",
+                Duration = 2
+            })
+        end
+    end
+})
+
+Tabs.Settings:Input({
+    Title = "Y坐标", 
+    Default = "-1470.40",
+    Callback = function(text)
+        local num = tonumber(text)
+        if num then
+            TARGET_POSITION = Vector3.new(TARGET_POSITION.X, num, TARGET_POSITION.Z)
+            WindUI:Notify({
+                Title = "坐标更新",
+                Content = "Y坐标已更新",
+                Duration = 2
+            })
+        end
+    end
+})
+
+Tabs.Settings:Input({
+    Title = "Z坐标", 
+    Default = "754.94",
+    Callback = function(text)
+        local num = tonumber(text)
+        if num then
+            TARGET_POSITION = Vector3.new(TARGET_POSITION.X, TARGET_POSITION.Y, num)
+            WindUI:Notify({
+                Title = "坐标更新",
+                Content = "Z坐标已更新",
+                Duration = 2
+            })
+        end
+    end
+})
+
+Tabs.Settings:Button({
+    Title = "一键保存坐标", 
+    Callback = function()
+        local character = game.Players.LocalPlayer.Character
+        if character and character:FindFirstChild("HumanoidRootPart") then
+            local pos = character.HumanoidRootPart.Position
+            TARGET_POSITION = pos
+            WindUI:Notify({
+                Title = "坐标已保存",
+                Content = string.format("新坐标: %.2f, %.2f, %.2f", pos.X, pos.Y, pos.Z),
+                Duration = 3
+            })
+        end
+    end
+})
+
+Tabs.Settings:Button({
+    Title = "清空错误计数", 
+    Callback = function()
+        errorCount = 0
+        WindUI:Notify({
+            Title = "系统维护",
+            Content = "错误计数已重置",
+            Duration = 2
+        })
+    end
+})
+
+-- 默认选择传送控制Tab
+Window:SelectTab(1)
+
+-- 启动通知
+WindUI:Notify({
+    Title = "挂机传送系统",
+    Content = "已加载完成\n锁定传送模式已启用",
+    Duration = 5
+})
+
+-- 控制台输出
+print("=== WindUI挂机传送系统 ===")
+print("目标坐标: " .. tostring(TARGET_POSITION))
+print("传送模式: 零延迟锁定传送")
+print("自动恢复: " .. tostring(autoRestart))
+print("死亡后自动恢复: 已启用")
